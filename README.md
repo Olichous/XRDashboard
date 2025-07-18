@@ -1,13 +1,14 @@
 # XR Dashboard
 
-This is a minimal proof of concept for managing IOS-XR equipment. It features:
+XR Dashboard is a simple automation lab for Cisco IOS-XR devices. It provides:
 
-- Inventory listing with reachability check
-- Upload area for software images
-- Basic update scheduling
-- Real-time console logs during updates
+- Inventory management stored in SQLite
+- Snapshot of running configuration and interface status
+- Real-time console logs during software updates
+- Basic PXE reboot and ZTP script generation
+- DHCP configuration generator
 
-## Running
+## Running locally
 
 ```bash
 python3 -m venv venv
@@ -17,8 +18,10 @@ python db_create.py
 python app.py
 ```
 
-Or build the Docker image:
+## Docker
 
 ```bash
 docker build -t xrdashboard .
 ```
+
+The API listens on port **5050** and ZTP scripts are served at `/ztp/<hostname>.sh`.

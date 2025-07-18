@@ -1,11 +1,16 @@
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, send_file
 from threading import Thread
 from flask_socketio import join_room
 from . import db, socketio
-from .models import Equipment
+from .models import Equipment, Snapshot
 from .utils import ping_device, fetch_device_info, update_device
+from .snapshot import take_snapshot
+from .ssh_utils import reboot_to_pxe
+from .ztp import generate_script
+from .dhcp import generate_config
+import datetime
 
-main = Blueprint('main', __name__)
+main = Blueprint("main", __name__)
 
 @main.route('/')
 def index():
@@ -62,3 +67,43 @@ def update_equipment(eq_id):
 
     Thread(target=worker, daemon=True).start()
     return jsonify({'status': 'scheduled'})
+
+
+
+@main.route('/api/snapshot/<int:eq_id>', methods=['POST'])
+def snapshot_device(eq_id):
+    eq = Equipment.query.get_or_404(eq_id)
+    data = request.json
+    path = take_snapshot(eq.mgmt_ip, data['username'], data['password'])
+    snap = Snapshot(equipment_id=eq.id, file_path=str(path), timestamp=datetime.datetime.utcnow())
+    db.session.add(snap)
+    db.session.commit()
+    return jsonify({'snapshot_id': snap.id}), 201
+
+
+@main.route('/api/download/<int:snap_id>')
+def download_snapshot(snap_id):
+    snap = Snapshot.query.get_or_404(snap_id)
+    return send_file(snap.file_path, as_attachment=True)
+
+
+@main.route('/api/reboot/<int:eq_id>', methods=['POST'])
+def reboot_device(eq_id):
+    eq = Equipment.query.get_or_404(eq_id)
+    data = request.json
+    Thread(target=reboot_to_pxe, args=(eq.mgmt_ip, data['username'], data['password']), daemon=True).start()
+    return jsonify({'status': 'rebooting'})
+
+
+@main.route('/ztp/<hostname>.sh')
+def ztp_script(hostname):
+    eq = Equipment.query.filter_by(hostname=hostname).first_or_404()
+    script = generate_script(hostname, eq)
+    return script, 200, {'Content-Type': 'text/plain'}
+
+
+@main.route('/api/dhcp')
+def dhcp_config():
+    equipment = Equipment.query.all()
+    config = generate_config(equipment)
+    return config, 200, {'Content-Type': 'text/plain'}
