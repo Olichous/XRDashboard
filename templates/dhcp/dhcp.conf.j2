@@ -1,0 +1,8 @@
+# Generated DHCP configuration snippet
+{% for eq in equipment %}
+host {{ eq.hostname }} {
+    hardware ethernet 00:00:00:00:00:00;
+    fixed-address {{ eq.mgmt_ip }};
+    option host-name "{{ eq.hostname }}";
+}
+{% endfor %}

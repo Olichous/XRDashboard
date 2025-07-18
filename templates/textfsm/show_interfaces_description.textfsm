@@ -1,0 +1,5 @@
+Value Interface (\S+)
+Value Description (.*)
+
+Start
+  ^${Interface}\s+${Description} -> Record
