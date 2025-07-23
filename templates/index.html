@@ -5,62 +5,183 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XR Dashboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+      .is-invalid { border-color: #dc3545 !important; }
+      #eqError { color: #dc3545; font-weight: bold; }
+      #consoleZone { background: #222; color: #0f0; font-family: monospace; padding: 8px; min-height: 140px; margin-top: 12px; display: none; }
+      #dhcpStatusIndicator { font-size:1.1em; margin-left: 0.5em;}
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
 <body>
 <div class="container my-4">
     <h1>XR Dashboard</h1>
+    <!-- Indicateur status DHCP -->
+    <div class="mb-3" id="dhcpStatusHeader">
+        DHCP Server :
+        <span id="dhcpStatusIndicator" class="badge rounded-pill bg-secondary">?</span>
+    </div>
     <ul class="nav nav-tabs" id="tabMenu">
-        <li class="nav-item">
-            <a class="nav-link active" href="#inventory" data-bs-toggle="tab">Inventory</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="#upload" data-bs-toggle="tab">Upload Images</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="#update" data-bs-toggle="tab">Update</a>
-        </li>
+        <li class="nav-item"><a class="nav-link active" href="#inventory" data-bs-toggle="tab">Inventory</a></li>
+        <li class="nav-item"><a class="nav-link" href="#consoleservers" data-bs-toggle="tab">Console Servers</a></li>
+        <li class="nav-item"><a class="nav-link" href="#upload" data-bs-toggle="tab">Upload Images</a></li>
+        <li class="nav-item"><a class="nav-link" href="#update" data-bs-toggle="tab">Update</a></li>
+        <li class="nav-item"><a class="nav-link" href="#ztp" data-bs-toggle="tab">ZTP / DHCP</a></li>
     </ul>
     <div class="tab-content mt-3">
+        <!-- Inventory tab -->
         <div class="tab-pane fade show active" id="inventory">
-            <button id="addBtn" class="btn btn-primary mb-2">+</button>
+            <form class="row g-2 mb-2" id="addEqForm">
+                <div class="col-auto"><input id="eqHostname" class="form-control" placeholder="Label/Hostname" required></div>
+                <div class="col-auto"><input id="eqMgmtIp" class="form-control" placeholder="Mgmt IP" required></div>
+                <div class="col-auto"><select id="eqConsoleServer" class="form-select" required></select></div>
+                <div class="col-auto"><input id="eqConsolePort" class="form-control" placeholder="Console Port" required></div>
+                <div class="col-auto"><input id="eqSshUser" class="form-control" placeholder="SSH user" required></div>
+                <div class="col-auto"><input id="eqSshPass" type="password" class="form-control" placeholder="SSH password" required></div>
+                <div class="col-auto"><button class="btn btn-primary" type="submit">Add Device</button></div>
+                <div class="col-auto" id="eqError"></div>
+            </form>
             <table class="table" id="inventoryTable">
                 <thead>
                     <tr>
                         <th>Status</th>
-                        <th>Hostname</th>
+                        <th>Label</th>
+                        <th>XR Hostname</th>
                         <th>Model</th>
                         <th>Version</th>
                         <th>Mgmt IP</th>
+                        <th>Serial</th>
+                        <th>Console Server</th>
+                        <th>Port</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody></tbody>
             </table>
         </div>
+        <!-- Console Servers tab -->
+        <div class="tab-pane fade" id="consoleservers">
+            <form class="row g-2 mb-2" id="addConsoleForm">
+                <div class="col-auto"><input id="csName" class="form-control" placeholder="Name" required></div>
+                <div class="col-auto"><input id="csIp" class="form-control" placeholder="IP" required></div>
+                <div class="col-auto">
+                    <select id="csType" class="form-select" required>
+                        <option value="Avocent">Avocent</option>
+                        <option value="Opengear">Opengear</option>
+                    </select>
+                </div>
+                <div class="col-auto"><button class="btn btn-primary" type="submit">Add Console Server</button></div>
+                <div class="col-auto" id="csError"></div>
+            </form>
+            <table class="table" id="consoleTable">
+                <thead>
+                    <tr>
+                        <th>Name</th><th>IP</th><th>Type</th><th></th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <!-- Upload tab -->
         <div class="tab-pane fade" id="upload">
-            <form id="uploadForm">
-                <input type="file" name="file" id="fileInput">
-                <button type="submit" class="btn btn-primary">Upload</button>
+            <form id="uploadForm" class="row g-2 align-items-center mb-2">
+                <div class="col-auto">
+                    <input type="file" name="file" id="fileInput" class="form-control">
+                </div>
+                <div class="col-auto">
+                    <select id="equipUploadSelect" class="form-select"></select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
             </form>
             <div id="uploadMsg" class="mt-2"></div>
+            <table class="table mt-3" id="imagesTable">
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>Type</th>
+                        <th>Version</th>
+                        <th>Equipment</th>
+                        <th>MD5SUM</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
         </div>
+        <!-- Update tab -->
         <div class="tab-pane fade" id="update">
-            <p>Select a device to update</p>
-            <select id="deviceSelect" class="form-select"></select>
-            <button id="updateBtn" class="btn btn-warning mt-2">Update</button>
+            <div class="mb-2"><b>Please select an ISO image for your device.</b></div>
+            <select id="deviceSelect" class="form-select mb-2"></select>
+            <select id="imageSelect" class="form-select mb-2"></select>
+            <button id="updateBtn" class="btn btn-warning mt-2">Upgrade</button>
+            <div id="consoleZone"></div>
+        </div>
+        <!-- ZTP/DHCP tab -->
+        <div class="tab-pane fade" id="ztp">
+            <h4>ZTP / DHCP / HTTP Server</h4>
+            <form class="row g-2 mb-2" id="ztpCfgForm">
+                <div class="col-auto">
+                    <label><input type="checkbox" id="ztpEnabled"> DHCP/HTTP ON</label>
+                </div>
+                <div class="col-auto">
+                    <label><input type="checkbox" id="ztpRelay"> Mode Relais</label>
+                </div>
+                <div class="col-auto">
+                    <input id="ztpNetwork" class="form-control" placeholder="Network (CIDR)">
+                </div>
+                <div class="col-auto">
+                    <input id="ztpRangeStart" class="form-control" placeholder="Range start IP">
+                </div>
+                <div class="col-auto">
+                    <input id="ztpRangeEnd" class="form-control" placeholder="Range end IP">
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-primary" type="submit">Apply</button>
+                </div>
+            </form>
+            <pre id="dhcpPreview" class="bg-light p-2"></pre>
         </div>
     </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script>
-function showToast(message, type = "success") {
+function showToast(msg, type="success") {
     const uploadMsg = document.getElementById('uploadMsg');
     uploadMsg.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
-        ${message}
+        ${msg}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>`;
 }
-
+function loadConsoleServers() {
+    axios.get('/api/consoleservers').then(res => {
+        const tbody = document.querySelector('#consoleTable tbody');
+        tbody.innerHTML = '';
+        res.data.forEach(cs => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${cs.name}</td><td>${cs.ip}</td><td>${cs.type}</td>
+                <td><button class="btn btn-sm btn-danger" onclick="deleteConsoleServer(${cs.id})">Delete</button></td>`;
+            tbody.appendChild(tr);
+        });
+        const csSelect = document.getElementById('eqConsoleServer');
+        csSelect.innerHTML = '';
+        res.data.forEach(cs => {
+            const opt = document.createElement('option');
+            opt.value = cs.id; opt.text = cs.name + " (" + cs.ip + ")";
+            csSelect.appendChild(opt);
+        });
+    });
+}
+window.deleteConsoleServer = function(id) {
+    if(confirm('Delete this console server?'))
+        axios.delete('/api/consoleservers/' + id).then(loadConsoleServers);
+};
+function isValidIP(ip) {
+    return /^(\d{1,3}\.){3}\d{1,3}$/.test(ip) &&
+           ip.split('.').every(x => Number(x) >= 0 && Number(x) <= 255);
+}
 function loadInventory(){
     axios.get('/api/equipment').then(res=>{
         const tbody=document.querySelector('#inventoryTable tbody');
@@ -68,14 +189,67 @@ function loadInventory(){
         res.data.forEach(eq=>{
             const tr=document.createElement('tr');
             const status=document.createElement('td');
-            status.innerHTML=`<span class='badge rounded-pill ${eq.status ? 'bg-success' : 'bg-danger'}'>&nbsp;</span>`;
+            status.innerHTML = `<span class='badge rounded-pill ${eq.status ? 'bg-success' : 'bg-dark'}'>&nbsp;</span>`;
             tr.appendChild(status);
-            tr.innerHTML+=`<td>${eq.hostname}</td><td>${eq.model}</td><td>${eq.version}</td><td>${eq.mgmt_ip}</td>`;
+            tr.innerHTML+=`<td>${eq.hostname}</td>
+                            <td>${eq.hostname}</td>
+                            <td>${eq.model||''}</td>
+                            <td>${eq.version||''}</td>
+                            <td>${eq.mgmt_ip}</td>
+                            <td>${eq.serial_number||''}</td>
+                            <td>${eq.console_server_name||''}</td>
+                            <td>${eq.console_port||''}</td>
+                            <td><button class="btn btn-sm btn-danger" onclick="deleteEq(${eq.id})">Delete</button></td>`;
+            tbody.appendChild(tr);
+        });
+        loadDevicesToSelect();
+        loadEquipmentsToUploadSelect();
+        refreshDhcpPreview(); // <-- Rafraîchit DHCP preview après chaque modif d'inventaire
+    });
+}
+window.deleteEq = function(id) {
+    if(confirm('Delete this device?'))
+        axios.delete('/api/equipment/' + id).then(loadInventory);
+};
+function loadEquipmentsToUploadSelect(){
+    axios.get('/api/equipment').then(res=>{
+        const select=document.getElementById('equipUploadSelect');
+        select.innerHTML = '';
+        res.data.forEach(eq=>{
+            const opt=document.createElement('option');
+            opt.value=eq.id; opt.text=eq.hostname;
+            select.appendChild(opt);
+        });
+    });
+}
+function loadImagesTable(){
+    axios.get('/api/images').then(res=>{
+        const tbody=document.querySelector('#imagesTable tbody');
+        tbody.innerHTML='';
+        res.data.forEach(img=>{
+            const tr=document.createElement('tr');
+            tr.innerHTML = `<td>${img.filename.split('/').pop()}</td>
+                            <td>${img.type || ''}</td>
+                            <td>${img.version || ''}</td>
+                            <td>${img.equipment || ''}</td>
+                            <td style="font-family:monospace">${img.md5sum || '-'}</td>
+                            <td><button class="btn btn-sm btn-danger" onclick="deleteImage('${img.filename}')">Delete</button></td>`;
             tbody.appendChild(tr);
         });
     });
 }
-
+window.deleteImage = function(filename) {
+    if(!confirm('Delete this image?')) return;
+    axios.delete('/api/image/' + encodeURIComponent(filename))
+        .then(()=>{
+            showToast("Image supprimée", "success");
+            loadImagesTable();
+            loadImagesToSelect();
+        })
+        .catch(()=>{
+            showToast("Erreur suppression", "danger");
+        });
+};
 function loadDevicesToSelect(){
     axios.get('/api/equipment').then(res=>{
         const select=document.getElementById('deviceSelect');
@@ -87,54 +261,163 @@ function loadDevicesToSelect(){
         });
     });
 }
-
-document.getElementById('addBtn').addEventListener('click',()=>{
-    const ip=prompt('Management IP?');
-    if(ip){
-        axios.post('/api/equipment', {mgmt_ip: ip})
-            .then(()=>{
-                loadInventory();
-                loadDevicesToSelect();  // <-- refresh aussi la liste déroulante update !
-                showToast("Équipement ajouté avec succès !");
-            })
-            .catch(err=>{
-                showToast("Erreur ajout équipement: " + (err.response?.data?.error || err.message), "danger");
-            });
-    }
-});
-
-document.getElementById('uploadForm').addEventListener('submit',e=>{
-    e.preventDefault();
-    const file=document.getElementById('fileInput').files[0];
-    if(!file){
-        showToast("Aucun fichier sélectionné", "warning");
-        return;
-    }
-    const formData=new FormData();
-    formData.append('file',file);
-    axios.post('/api/upload',formData)
-        .then(res=>{
-            showToast("Upload OK !");
-        })
-        .catch(err=>{
-            showToast("Erreur upload : " + (err.response?.data?.error || err.message), "danger");
+function loadImagesToSelect(){
+    axios.get('/api/images').then(res=>{
+        const select=document.getElementById('imageSelect');
+        select.innerHTML='';
+        res.data.forEach(img=>{
+            const opt=document.createElement('option');
+            opt.value=img.filename;
+            opt.text=img.filename;
+            select.appendChild(opt);
         });
-});
-
-document.getElementById('updateBtn').addEventListener('click',()=>{
-    const id=document.getElementById('deviceSelect').value;
-    if(!id){
-        showToast("Sélectionnez un équipement d'abord", "warning");
-        return;
-    }
-    axios.post(`/api/update/${id}`).then(()=>{
-        window.open(`/console/${id}`, '_blank');
     });
-});
+}
+function refreshDhcpPreview(){
+    axios.get('/api/ztp/dhcp-preview').then(res=>{
+        document.getElementById('dhcpPreview').textContent = res.data;
+    });
+}
+function checkDhcpStatus() {
+    axios.get('/api/dhcp/status').then(res => {
+        let badge = document.getElementById('dhcpStatusIndicator');
+        if (!badge) return;
+        if (res.data.up) {
+            badge.className = 'badge rounded-pill bg-success';
+            badge.innerText = 'UP';
+        } else {
+            badge.className = 'badge rounded-pill bg-danger';
+            badge.innerText = 'DOWN';
+        }
+    });
+}
+setInterval(checkDhcpStatus, 3000);
+document.addEventListener('DOMContentLoaded', checkDhcpStatus);
 
 document.addEventListener('DOMContentLoaded',()=>{
+    checkDhcpStatus();
+    loadConsoleServers();
     loadInventory();
-    loadDevicesToSelect();
+    loadImagesToSelect();
+    loadImagesTable();
+    loadEquipmentsToUploadSelect();
+    refreshDhcpPreview();
+
+    // ---- EVENTS ----
+    document.getElementById('addConsoleForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const name = document.getElementById('csName').value.trim();
+        const ip = document.getElementById('csIp').value.trim();
+        const type = document.getElementById('csType').value.trim();
+        if(!name || !ip || !type) return;
+        axios.post('/api/consoleservers', {name, ip, type})
+            .then(() => {
+                loadConsoleServers();
+                document.getElementById('csName').value = '';
+                document.getElementById('csIp').value = '';
+            });
+    });
+
+    document.getElementById('addEqForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const hostname = document.getElementById('eqHostname').value.trim();
+        const mgmt_ip = document.getElementById('eqMgmtIp').value.trim();
+        const console_server_id = document.getElementById('eqConsoleServer').value;
+        const console_port = document.getElementById('eqConsolePort').value.trim();
+        const ssh_user = document.getElementById('eqSshUser').value.trim();
+        const ssh_pass = document.getElementById('eqSshPass').value.trim();
+        const eqError = document.getElementById('eqError');
+        if(!hostname || !mgmt_ip || !console_server_id || !console_port || !ssh_user || !ssh_pass) {
+            eqError.textContent = "Please fill all required fields";
+            return;
+        }
+        if(!isValidIP(mgmt_ip)) {
+            eqError.textContent = "Invalid IP";
+            return;
+        }
+        eqError.textContent = "";
+        axios.post('/api/equipment', {
+            hostname, mgmt_ip, console_server_id, console_port, ssh_user, ssh_pass
+        }).then(()=>{
+            loadInventory();
+            document.getElementById('eqHostname').value = '';
+            document.getElementById('eqMgmtIp').value = '';
+            document.getElementById('eqConsolePort').value = '';
+            document.getElementById('eqSshUser').value = '';
+            document.getElementById('eqSshPass').value = '';
+            // refreshDhcpPreview(); // plus utile ici car inclus dans loadInventory()
+        }).catch(err=>{
+            eqError.textContent = err.response?.data?.error || err.message;
+        });
+    });
+
+    document.getElementById('uploadForm').addEventListener('submit',e=>{
+        e.preventDefault();
+        const file=document.getElementById('fileInput').files[0];
+        const eq=document.getElementById('equipUploadSelect').value;
+        if(!file){
+            showToast("Aucun fichier sélectionné", "warning");
+            return;
+        }
+        const formData=new FormData();
+        formData.append('file',file);
+        formData.append('equipment_id', eq);
+        axios.post('/api/upload',formData)
+            .then(res=>{
+                showToast("Upload OK !");
+                loadImagesTable();
+                loadImagesToSelect();
+            })
+            .catch(err=>{
+                let msg = err.response?.data?.error || err.message;
+                showToast("Erreur upload : " + msg, "danger");
+            });
+    });
+
+    document.getElementById('updateBtn').addEventListener('click',()=>{
+        const id=document.getElementById('deviceSelect').value;
+        const imageSel = document.getElementById('imageSelect');
+        const image = imageSel.value;
+        const consoleZone = document.getElementById('consoleZone');
+        if(!id){
+            showToast("Sélectionnez un équipement d'abord", "warning");
+            return;
+        }
+        if(!image){
+            imageSel.classList.add('is-invalid');
+            consoleZone.style.display = 'block';
+            consoleZone.innerText = "Please select an ISO image";
+            return;
+        }
+        imageSel.classList.remove('is-invalid');
+        consoleZone.innerText = "";
+        const eqName = document.getElementById('deviceSelect').selectedOptions[0].text;
+        document.getElementById('consoleZone').style.display='block';
+        document.getElementById('consoleZone').innerText = `${eqName} -- Equipement Console -- Port\nEn attente de connexion...`;
+        axios.post(`/api/update/${id}`, {image: image}).then(()=>{
+            document.getElementById('consoleZone').innerText += "\nUpgrade déclenchée.";
+            refreshDhcpPreview(); // <-- Rafraîchit DHCP preview après upgrade
+        }).catch(err=>{
+            let msg = err.response?.data?.error || err.message;
+            consoleZone.innerText = msg;
+        });
+    });
+
+    document.getElementById('ztpCfgForm').addEventListener('submit', e=>{
+        e.preventDefault();
+        const enabled = document.getElementById('ztpEnabled').checked;
+        const relay = document.getElementById('ztpRelay').checked;
+        const network = document.getElementById('ztpNetwork').value.trim();
+        const range_start = document.getElementById('ztpRangeStart').value.trim();
+        const range_end = document.getElementById('ztpRangeEnd').value.trim();
+        axios.post('/api/ztp/config', {enabled, relay, network, range_start, range_end})
+            .then(()=>{
+                refreshDhcpPreview();
+            })
+            .catch(err=>{
+                showToast("Erreur config DHCP: " + (err.response?.data?.error || err.message), "danger");
+            });
+    });
 });
 </script>
 </body>
