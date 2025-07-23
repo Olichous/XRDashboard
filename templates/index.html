@@ -42,6 +42,7 @@
                 <input type="file" name="file" id="fileInput">
                 <button type="submit" class="btn btn-primary">Upload</button>
             </form>
+            <div id="uploadMsg" class="mt-2"></div>
         </div>
         <div class="tab-pane fade" id="update">
             <p>Select a device to update</p>
@@ -52,6 +53,14 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+function showToast(message, type = "success") {
+    const uploadMsg = document.getElementById('uploadMsg');
+    uploadMsg.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>`;
+}
+
 function loadInventory(){
     axios.get('/api/equipment').then(res=>{
         const tbody=document.querySelector('#inventoryTable tbody');
@@ -67,28 +76,6 @@ function loadInventory(){
     });
 }
 
-document.getElementById('addBtn').addEventListener('click',()=>{
-    const ip=prompt('Management IP?');
-    if(ip){
-        axios.post('/api/equipment', {mgmt_ip: ip}).then(loadInventory);
-    }
-});
-
-document.getElementById('uploadForm').addEventListener('submit',e=>{
-    e.preventDefault();
-    const file=document.getElementById('fileInput').files[0];
-    const formData=new FormData();
-    formData.append('file',file);
-    axios.post('/api/upload',formData);
-});
-
-document.getElementById('updateBtn').addEventListener('click',()=>{
-    const id=document.getElementById('deviceSelect').value;
-    axios.post(`/api/update/${id}`).then(()=>{
-        window.open(`/console/${id}`, '_blank');
-    });
-});
-
 function loadDevicesToSelect(){
     axios.get('/api/equipment').then(res=>{
         const select=document.getElementById('deviceSelect');
@@ -100,6 +87,50 @@ function loadDevicesToSelect(){
         });
     });
 }
+
+document.getElementById('addBtn').addEventListener('click',()=>{
+    const ip=prompt('Management IP?');
+    if(ip){
+        axios.post('/api/equipment', {mgmt_ip: ip})
+            .then(()=>{
+                loadInventory();
+                loadDevicesToSelect();  // <-- refresh aussi la liste déroulante update !
+                showToast("Équipement ajouté avec succès !");
+            })
+            .catch(err=>{
+                showToast("Erreur ajout équipement: " + (err.response?.data?.error || err.message), "danger");
+            });
+    }
+});
+
+document.getElementById('uploadForm').addEventListener('submit',e=>{
+    e.preventDefault();
+    const file=document.getElementById('fileInput').files[0];
+    if(!file){
+        showToast("Aucun fichier sélectionné", "warning");
+        return;
+    }
+    const formData=new FormData();
+    formData.append('file',file);
+    axios.post('/api/upload',formData)
+        .then(res=>{
+            showToast("Upload OK !");
+        })
+        .catch(err=>{
+            showToast("Erreur upload : " + (err.response?.data?.error || err.message), "danger");
+        });
+});
+
+document.getElementById('updateBtn').addEventListener('click',()=>{
+    const id=document.getElementById('deviceSelect').value;
+    if(!id){
+        showToast("Sélectionnez un équipement d'abord", "warning");
+        return;
+    }
+    axios.post(`/api/update/${id}`).then(()=>{
+        window.open(`/console/${id}`, '_blank');
+    });
+});
 
 document.addEventListener('DOMContentLoaded',()=>{
     loadInventory();

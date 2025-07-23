@@ -14,7 +14,7 @@ def create_app():
     db.init_app(app)
     socketio.init_app(app)
 
-    # IMPERATIF : importer les modèles AVANT db.create_all
+    # Importe les modèles AVANT de créer les tables !
     from xrdashboard import models
 
     with app.app_context():

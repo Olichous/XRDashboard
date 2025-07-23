@@ -1,4 +1,5 @@
-from . import db
+# xrdashboard/models.py
+from xrdashboard import db
 
 class Equipment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
